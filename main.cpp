@@ -3,25 +3,51 @@
 #include "BitmapRawConverter.h"
 
 #define __ARG_NUM__				6
-#define FILTER_SIZE				3
+#define FILTER_SIZE				5
 #define THRESHOLD				128
 
 using namespace std;
 
 // Prewitt operators
-int filterHor[FILTER_SIZE * FILTER_SIZE] = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
-int filterVer[FILTER_SIZE * FILTER_SIZE] = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
+//int filterHor[FILTER_SIZE * FILTER_SIZE] = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
+//int filterVer[FILTER_SIZE * FILTER_SIZE] = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
 
-int prewitt(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* outBuffer, int width) {
+int filterHor[FILTER_SIZE * FILTER_SIZE] = { 9, 9, 9, 9, 9,
+											9, 5, 5, 5, 9,
+											-7, -3, 0, -3, -7,
+											-7, -3, -3, -3, -7,
+											-7, -7, -7, -7, -7, };
+int filterVer[FILTER_SIZE * FILTER_SIZE] = { 9, 9, -7, -7, -7,
+											9, 5, -3, -3, -7,
+											9, 5, 0, -3, -7,
+											9, 5, -3, -3, -7,
+											9, 9, -7, -7, -7
+											};
 
+int prewitt(int pixelRow, int pixelColumn, int* inBuffer, int* outBuffer, int width) {
+	int pixelRowStart = pixelRow - (FILTER_SIZE / 2);
+	int pixelColumnStart = pixelColumn - (FILTER_SIZE / 2);
 	int sumGy = 0, sumGx = 0;
-	for (int i = 0; i < 3; ++i) {
-		for (int j = 0; j < 3; ++j) {
-			sumGy += inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] * filterVer[i * 3 + j];
-			sumGx += inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] * filterHor[i * 3 + j];
+	for (int i = 0; i < FILTER_SIZE; ++i) {
+		for (int j = 0; j < FILTER_SIZE; ++j) {
+			sumGy += inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] * filterVer[i * FILTER_SIZE + j];
+			sumGx += inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] * filterHor[i * FILTER_SIZE + j];
 		}
 	}
-	return std::abs(sumGy) + std::abs(sumGx) >= 128 ? 255 : 0;
+	return std::abs(sumGy) + std::abs(sumGx);
+}
+
+int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* outBuffer, int width) {
+	int P = 0, O = 1;
+	for (int i = 0; i < 3; ++i) {
+		for (int j = 0; j < 3; ++j) {
+			if (inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] >= 128)
+				P = 1;
+			if (inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] < 128)
+				O = 0;
+		}
+	}
+	return std::abs(P - O) ? 255 : 0;
 }
 
 
@@ -34,12 +60,18 @@ int prewitt(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* outBuff
 */
 void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height)  //TODO obrisati
 {
-	int k = 0;
-	for (int i = 1; i < height - 1; ++i) {
-		for (int j = 1; j < width - 1; ++j) {
-			outBuffer[i * width + j] = prewitt(i - 1, j - 1, inBuffer, outBuffer, width);
+	int offset = FILTER_SIZE / 2;
+	for (int i = offset; i < height - offset; ++i) {
+		for (int j = offset; j < width - offset; ++j) {
+			outBuffer[i * width + j] = prewitt(i, j, inBuffer, outBuffer, width);
 		}
 	}
+	for (int i = offset; i < height - offset; ++i) {
+		for (int j = offset; j < width - offset; ++j) {
+			outBuffer[i * width + j] = outBuffer[i * width + j] >= 128 ? 255 : 0;
+		}
+	}
+	
 }
 
 
@@ -64,6 +96,21 @@ void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int heigh
 */
 void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int height)	//TODO obrisati
 {
+	/*for (int i = 1; i < height - 1; ++i) {
+		for (int j = 1; j < width - 1; ++j) {
+			outBuffer[i * width + j] = inBuffer[i * width + j] >= 128 ? 1 : 0;
+		}
+	}*/
+	for (int i = 1; i < height - 1; ++i) {
+		for (int j = 1; j < width - 1; ++j) {
+			outBuffer[i * width + j] = detectEdges(i - 1, j - 1, inBuffer, outBuffer, width);
+		}
+	}
+	/*for (int i = 1; i < height - 1; ++i) {
+		for (int j = 1; j < width - 1; ++j) {
+			outBuffer[i * width + j] = outBuffer[i * width + j] ? 255 : 0;
+		}
+	}*/
 }
 
 /**
