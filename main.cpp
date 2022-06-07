@@ -12,6 +12,19 @@ using namespace std;
 int filterHor[FILTER_SIZE * FILTER_SIZE] = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
 int filterVer[FILTER_SIZE * FILTER_SIZE] = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
 
+int prewitt(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* outBuffer, int width) {
+
+	int sumGy = 0, sumGx = 0;
+	for (int i = 0; i < 3; ++i) {
+		for (int j = 0; j < 3; ++j) {
+			sumGy += inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] * filterVer[i * 3 + j];
+			sumGx += inBuffer[(pixelRowStart + i) * width + (pixelColumnStart + j)] * filterHor[i * 3 + j];
+		}
+	}
+	return std::abs(sumGy) + std::abs(sumGx) >= 128 ? 255 : 0;
+}
+
+
 /**
 * @brief Serial version of edge detection algorithm implementation using Prewitt operator
 * @param inBuffer buffer of input image
@@ -21,6 +34,12 @@ int filterVer[FILTER_SIZE * FILTER_SIZE] = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
 */
 void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height)  //TODO obrisati
 {
+	int k = 0;
+	for (int i = 1; i < height - 1; ++i) {
+		for (int j = 1; j < width - 1; ++j) {
+			outBuffer[i * width + j] = prewitt(i - 1, j - 1, inBuffer, outBuffer, width);
+		}
+	}
 }
 
 
