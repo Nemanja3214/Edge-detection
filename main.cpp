@@ -28,7 +28,7 @@ int filterVer[FILTER_SIZE * FILTER_SIZE] = { 9, 9, -7, -7, -7,
 											};
 
 /**
-* @brief Convolves submatrix and filter
+* @brief Convolves submatrix and filters and returns G
 * @param pixelRow current pixel row value
 * @param pixelColumn current pixel column value
 * @param inBuffer buffer of input image
@@ -200,7 +200,7 @@ void run_test_nr(int testNr, BitmapRawConverter* ioFile, char* outFileName, int*
 			break;
 	}
 	auto end = tbb::tick_count::now();
-	cout << "Lasted: " << (end - start).count() << endl;
+	cout << "Lasted: " << (end - start).seconds() << endl;
 
 	ioFile->setBuffer(outBuffer);
 	ioFile->pixelsToBitmap(outFileName);
