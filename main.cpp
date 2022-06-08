@@ -27,6 +27,14 @@ int filterVer[FILTER_SIZE * FILTER_SIZE] = { 9, 9, -7, -7, -7,
 											9, 9, -7, -7, -7
 											};
 
+/**
+* @brief Convolves submatrix and filter
+* @param pixelRow current pixel row value
+* @param pixelColumn current pixel column value
+* @param inBuffer buffer of input image
+* @param outBuffer buffer of output image
+* @param width image width
+*/
 int prewitt(int pixelRow, int pixelColumn, int* inBuffer, int* outBuffer, int width) {
 	int pixelRowStart = pixelRow - (FILTER_SIZE / 2);
 	int pixelColumnStart = pixelColumn - (FILTER_SIZE / 2);
@@ -40,6 +48,14 @@ int prewitt(int pixelRow, int pixelColumn, int* inBuffer, int* outBuffer, int wi
 	return std::abs(sumGy) + std::abs(sumGx);
 }
 
+/**
+* @brief Searches surrounding area to see if the pixel is part of the edge
+* @param pixelRow current pixel row value
+* @param pixelColumn current pixel column value
+* @param inBuffer buffer of input image
+* @param outBuffer buffer of output image
+* @param width image width
+*/
 int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* outBuffer, int width) {
 	int P = 0, O = 1;
 	for (int i = 0; i < 3; ++i) {
@@ -50,7 +66,7 @@ int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* out
 				O = 0;
 		}
 	}
-	return std::abs(P - O) ? 255 : 0;
+	return std::abs(P - O);
 }
 
 
@@ -61,20 +77,19 @@ int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* out
 * @param width image width
 * @param height image height
 */
-void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height)
+void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height, int rowStart=0, int rowEnd=-1)
 {
 	int offset = FILTER_SIZE / 2;
-	for (int i = offset; i < height - offset; ++i) {
-		for (int j = offset; j < width - offset; ++j) {
-			outBuffer[i * width + j] = prewitt(i, j, inBuffer, outBuffer, width);
-		}
-	}
-	for (int i = offset; i < height - offset; ++i) {
-		for (int j = offset; j < width - offset; ++j) {
-			outBuffer[i * width + j] = outBuffer[i * width + j] >= 128 ? 255 : 0;
-		}
-	}
+	if (rowEnd == -1)
+		rowEnd = height - offset;
 	
+	for (int i = rowStart; i < rowEnd; ++i) {
+		for (int j = offset; j < width - offset; ++j) {
+			if (i < FILTER_SIZE / 2 || i > height - FILTER_SIZE / 2)
+				continue;
+			outBuffer[i * width + j] = prewitt(i, j, inBuffer, outBuffer, width) >= 128 ? 255 : 0;
+		}
+	}
 }
 
 
@@ -86,15 +101,17 @@ void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height)
 * @param width image width
 * @param height image height
 */
-void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int height)
-{
-	if (height < CUT_OFF) {
-		filter_serial_prewitt(inBuffer, outBuffer, width, height);
+void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int height, int rowStart=0, int rowEnd=-1)
+{	
+	if (rowEnd == -1)
+		rowEnd = height - FILTER_SIZE / 2;
+	if ((rowEnd - rowStart) < CUT_OFF) {
+		filter_serial_prewitt(inBuffer, outBuffer, width, height, rowStart, rowEnd);
 	}
 	else {
 		tbb::task_group tg;
-		tg.run([=]() {filter_parallel_prewitt(inBuffer, outBuffer, width, height / 2); });
-		tg.run([=]() {filter_parallel_prewitt(inBuffer + (height / 2) * width, outBuffer + (height / 2) * width, width, height - height / 2); });
+		tg.run([=]() {filter_parallel_prewitt(inBuffer, outBuffer, width, height, rowStart, (rowStart + rowEnd) / 2); });
+		tg.run([=]() {filter_parallel_prewitt(inBuffer, outBuffer, width, height, (rowStart + rowEnd) / 2, rowEnd); });
 		tg.wait();
 	}
 }
@@ -106,18 +123,19 @@ void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int heigh
 * @param width image width
 * @param height image height
 */
-void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int height)
+void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int height, int rowStart=0, int rowEnd=-1)
 {
-	for (int i = 1; i < height - 1; ++i) {
-		for (int j = 1; j < width - 1; ++j) {
-			outBuffer[i * width + j] = detectEdges(i - 1, j - 1, inBuffer, outBuffer, width);
+	int offset = FILTER_SIZE / 2;
+	if (rowEnd == -1)
+		rowEnd = height - offset;
+
+	for (int i = rowStart; i < rowEnd; ++i) {
+		for (int j = offset; j < width - offset; ++j) {
+			if (i < FILTER_SIZE / 2 || i > height - FILTER_SIZE / 2)
+				continue;
+			outBuffer[i * width + j] = detectEdges(i - 1, j - 1, inBuffer, outBuffer, width) ? 255 : 0;
 		}
 	}
-	/*for (int i = 1; i < height - 1; ++i) {
-		for (int j = 1; j < width - 1; ++j) {
-			outBuffer[i * width + j] = outBuffer[i * width + j] ? 255 : 0;
-		}
-	}*/
 }
 
 /**
@@ -128,15 +146,17 @@ void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int 
 * @param width image width
 * @param height image height
 */
-void filter_parallel_edge_detection(int *inBuffer, int *outBuffer, int width, int height)
+void filter_parallel_edge_detection(int *inBuffer, int *outBuffer, int width, int height, int rowStart=0, int rowEnd=-1)
 {
-	if (height < CUT_OFF) {
-		filter_serial_edge_detection(inBuffer, outBuffer, width, height);
+	if (rowEnd == -1)
+		rowEnd = height - FILTER_SIZE / 2;
+	if ((rowEnd - rowStart) < CUT_OFF) {
+		filter_serial_edge_detection(inBuffer, outBuffer, width, height, rowStart, rowEnd);
 	}
 	else {
 		tbb::task_group tg;
-		tg.run([=]() {filter_serial_edge_detection(inBuffer, outBuffer, width, height / 2); });
-		tg.run([=]() {filter_serial_edge_detection(inBuffer + (height / 2) * width, outBuffer + (height / 2) * width, width, height - height / 2); });
+		tg.run([=]() {filter_parallel_edge_detection(inBuffer, outBuffer, width, height, rowStart, (rowStart + rowEnd) / 2); });
+		tg.run([=]() {filter_parallel_edge_detection(inBuffer, outBuffer, width, height, (rowStart + rowEnd) / 2, rowEnd); });
 		tg.wait();
 	}
 }
