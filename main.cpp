@@ -1,10 +1,13 @@
 #include <iostream>
 #include <stdlib.h>
 #include "BitmapRawConverter.h"
+#include <tbb/task_group.h>
+#include <tbb/tick_count.h>
 
 #define __ARG_NUM__				6
 #define FILTER_SIZE				5
 #define THRESHOLD				128
+#define CUT_OFF					1000
 
 using namespace std;
 
@@ -58,7 +61,7 @@ int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* out
 * @param width image width
 * @param height image height
 */
-void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height)  //TODO obrisati
+void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height)
 {
 	int offset = FILTER_SIZE / 2;
 	for (int i = offset; i < height - offset; ++i) {
@@ -85,6 +88,15 @@ void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height)
 */
 void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int height)
 {
+	if (height < CUT_OFF) {
+		filter_serial_prewitt(inBuffer, outBuffer, width, height);
+	}
+	else {
+		tbb::task_group tg;
+		tg.run([=]() {filter_parallel_prewitt(inBuffer, outBuffer, width, height / 2); });
+		tg.run([=]() {filter_parallel_prewitt(inBuffer + (height / 2) * width, outBuffer + (height / 2) * width, width, height - height / 2); });
+		tg.wait();
+	}
 }
 
 /**
@@ -94,13 +106,8 @@ void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int heigh
 * @param width image width
 * @param height image height
 */
-void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int height)	//TODO obrisati
+void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int height)
 {
-	/*for (int i = 1; i < height - 1; ++i) {
-		for (int j = 1; j < width - 1; ++j) {
-			outBuffer[i * width + j] = inBuffer[i * width + j] >= 128 ? 1 : 0;
-		}
-	}*/
 	for (int i = 1; i < height - 1; ++i) {
 		for (int j = 1; j < width - 1; ++j) {
 			outBuffer[i * width + j] = detectEdges(i - 1, j - 1, inBuffer, outBuffer, width);
@@ -123,6 +130,15 @@ void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int 
 */
 void filter_parallel_edge_detection(int *inBuffer, int *outBuffer, int width, int height)
 {
+	if (height < CUT_OFF) {
+		filter_serial_edge_detection(inBuffer, outBuffer, width, height);
+	}
+	else {
+		tbb::task_group tg;
+		tg.run([=]() {filter_serial_edge_detection(inBuffer, outBuffer, width, height / 2); });
+		tg.run([=]() {filter_serial_edge_detection(inBuffer + (height / 2) * width, outBuffer + (height / 2) * width, width, height - height / 2); });
+		tg.wait();
+	}
 }
 
 /**
@@ -139,9 +155,7 @@ void filter_parallel_edge_detection(int *inBuffer, int *outBuffer, int width, in
 
 void run_test_nr(int testNr, BitmapRawConverter* ioFile, char* outFileName, int* outBuffer, unsigned int width, unsigned int height)
 {
-
-	// TODO: start measure
-	
+	auto start = tbb::tick_count::now();
 
 	switch (testNr)
 	{
@@ -165,7 +179,8 @@ void run_test_nr(int testNr, BitmapRawConverter* ioFile, char* outFileName, int*
 			cout << "ERROR: invalid test case, must be 1, 2, 3 or 4!";
 			break;
 	}
-	// TODO: end measure and display time
+	auto end = tbb::tick_count::now();
+	cout << "Lasted: " << (end - start).count() << endl;
 
 	ioFile->setBuffer(outBuffer);
 	ioFile->pixelsToBitmap(outFileName);
