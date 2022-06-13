@@ -74,7 +74,7 @@ int prewitt(int pixelRow, int pixelColumn, int* inBuffer, int* outBuffer, int wi
 * @param width image width
 * @param lookupWidth size of neighbour lookup matrix
 */
-int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* outBuffer, int width, int lookupWidth=3) {
+int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* outBuffer, int width, int lookupWidth) {
 	int P = 0, O = 1;
 	for (int i = 0; i < lookupWidth; ++i) {
 		for (int j = 0; j < lookupWidth; ++j) {
@@ -166,7 +166,7 @@ void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int 
 		for (int j = offset; j < width - offset; ++j) {
 			if (i < lookupWidth / 2 || i > height - lookupWidth / 2)
 				continue;
-			outBuffer[i * width + j] = detectEdges(i - offset, j - offset, inBuffer, outBuffer, width) ? 255 : 0;
+			outBuffer[i * width + j] = detectEdges(i - offset, j - offset, inBuffer, outBuffer, width, lookupWidth) ? 255 : 0;
 		}
 	}
 }
@@ -285,7 +285,7 @@ struct ApplyEdge {
 			for (int j = offset; j < width - offset; ++j) {
 				if (i < lookupWidth / 2 || i > height - lookupWidth / 2)
 					continue;
-				outBuffer[i * width + j] = detectEdges(i - 1, j - 1, inBuffer, outBuffer, width) ? 255 : 0;
+				outBuffer[i * width + j] = detectEdges(i - offset, j - offset, inBuffer, outBuffer, width, lookupWidth) ? 255 : 0;
 			}
 		}
 	}
