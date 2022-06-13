@@ -100,7 +100,8 @@ int detectEdges(int pixelRowStart, int pixelColumnStart, int* inBuffer, int* out
 * @param rowStart from where does row processing start
 * @param rowEnd where does row processing end
 */
-void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height, int* filterVer, int* filterHor, int filterSize, int rowStart=0, int rowEnd=-1)
+void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height, int* filterVer, int* filterHor,
+	int filterSize, int rowStart=0, int rowEnd=-1)
 {
 	int offset = filterSize / 2;
 	if (rowEnd == -1)
@@ -129,7 +130,8 @@ void filter_serial_prewitt(int *inBuffer, int *outBuffer, int width, int height,
 * @param rowStart from where does row processing start
 * @param rowEnd where does row processing end
 */
-void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int height, int* filterVer, int* filterHor, int filterSize, int rowStart=0, int rowEnd=-1)
+void filter_parallel_prewitt(int *inBuffer, int *outBuffer, int width, int height, int* filterVer, int* filterHor, int filterSize,
+	int rowStart=0, int rowEnd=-1)
 {	
 	if (rowEnd == -1)
 		rowEnd = height - filterSize / 2;
@@ -164,7 +166,7 @@ void filter_serial_edge_detection(int *inBuffer, int *outBuffer, int width, int 
 		for (int j = offset; j < width - offset; ++j) {
 			if (i < lookupWidth / 2 || i > height - lookupWidth / 2)
 				continue;
-			outBuffer[i * width + j] = detectEdges(i - 1, j - 1, inBuffer, outBuffer, width) ? 255 : 0;
+			outBuffer[i * width + j] = detectEdges(i - offset, j - offset, inBuffer, outBuffer, width) ? 255 : 0;
 		}
 	}
 }
