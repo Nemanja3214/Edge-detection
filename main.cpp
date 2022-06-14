@@ -463,7 +463,7 @@ int main(int argc, char * argv[])
 
 	cout << "Choose lookup width for edge detection: " << endl;
 	cin >> lookupWidth;
-	if (lookupWidth < 3) {
+	if (lookupWidth < 3 || lookupWidth % 2 == 0) {
 		cout << "Invalid lookup width, default 3 is set" << endl;
 		lookupWidth = 3;
 	}
@@ -494,9 +494,11 @@ int main(int argc, char * argv[])
 		filterVer = filterVer3;
 	}
 
-	if (lookupWidth < 3) {
-		cout << "Invalid lookup width, default 3 is set" << endl;
-		lookupWidth = 3;
+	if (filterSize < 3 || filterSize % 2 == 0) {
+		cout << "Invalid filter size, default 3 is set" << endl;
+		filterSize = 3;
+		filterHor = filterHor3;
+		filterVer = filterVer3;
 	}
 
 	// serial version Prewitt
