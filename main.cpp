@@ -8,7 +8,7 @@
 
 #define __ARG_NUM__				10
 #define THRESHOLD				128
-#define CUT_OFF					300
+#define CUT_OFF					2000
 
 using namespace std;
 
